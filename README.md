@@ -1,121 +1,82 @@
-# EndfieldCharge · 终末地风格电量 HUD
+# PPT 控制台（PptConsole）
 
-插上 / 拔掉充电器时，从屏幕顶部弹出一块"灵动岛"式 HUD，显示当前电量（mWh 与百分比）。
-视觉与动画风格复刻《终末地》工业 / 超充模式 HUD。
+为触屏演示设计的 PPT 放映控制终端：底部吊起三颗胶囊（左＝页面列表＋上一页，中＝笔/选择/橡皮，右＝下一页＋页面列表），继承 EndfieldCharge HUD 的设计语言（#312F30 实心胶囊、白字 opacity 分层、唯一彩色 #C6CA4C、BackOut 回弹吊起、向上扩展工具面板）。墨迹采用自绘全屏覆盖层（不写入 PPT 文件），按页记忆，支持压感、笔画级擦除、逐笔撤销。
 
-- **插电**：完整三态动画 —— 电标弹出 → 胶囊撑高成圆角矩形显示「超充模式」→ 收成圆胶囊显示电量 → 停留 → 整体缩小收回
-- **拔电**：简化动画 —— 只弹电量圆胶囊，内容在胶囊完全出来后快速显现 → 停留 → 收回
+## 环境要求
 
-## 下载安装
-
-从 [Releases](https://github.com/Lenkmat/endfield-charge/releases) 下载：
-
-| 文件 | 说明 |
-|------|------|
-| `EndfieldCharge-x.y.z-setup.exe` | Inno Setup 安装版（中文/英文向导，可选桌面快捷方式与开机自启） |
-| `EndfieldCharge-x.y.z-portable.zip` | 便携版，解压即用 |
-
-## 功能
-
-| 功能 | 说明 |
-|------|------|
-| 电量显示 | 剩余 / 满充容量（mWh，整数）与百分比，读取 `CallNtPowerInformation`，WMI 兜底 |
-| 电源监听 | `RegisterPowerSettingNotification` 订阅 GUID_ACDC_POWER_SOURCE，2s 轮询兜底，400ms 双向去抖（过滤 Windows 满电瞬时抖动） |
-| 低电量变色 | 电量 < 20% 时黄绿电量圈变红（#FF4D4F） |
-| 提醒通知 | 低电量提醒（阈值可调 5–40%）与充满提醒（≥99%），卡牌风格弹窗，4s 自动消失 |
-| 设置窗口 | 全局缩放（0.4–1.2）、显示时长（2–10s）、HUD 位置（顶部居中/靠右/靠左）、显示器选择、语言、开机自启，保存即生效并持久化 |
-| 托盘菜单 | 左键单击弹出自定义深色菜单（预览 / 设置 / 检查更新 / 退出） |
-| 动画微调 | 设置窗口「动画」页实时预览并微调时长 / 回弹 / 波纹参数，保存即生效并持久化 |
-| 节能模式提示 | 开 / 关节能（省电）模式时弹出对应 HUD。24H2+（build 26100+）订阅 GUID_ENERGY_SAVER_STATUS 通知、轮询注册表 EnergySaverState；旧系统用 GUID_POWER_SAVING_STATUS + SystemStatusFlag。设置「通知」页可开关 |
-| 检查更新 | 读取 GitHub Releases API，比较程序集版本，一键跳转下载页 |
-| 多语言 | 中文 / 英文，默认跟随系统，可在设置中手动切换 |
-| 开机自启 | 设置窗口「通用」页开关，写 `HKCU\...\CurrentVersion\Run`（当前用户级，无需管理员） |
-| 统一图标 | 托盘 / 各窗口 / exe / 安装器 / 卸载器统一使用 `Assets\tray_bolt` 图标 |
-| 日志 | `%TEMP%\EndfieldCharge\log-YYYYMMDD.txt`，方便排查托盘菜单定位等问题 |
-
-## 运行要求
-
-- Windows 10 1809+ / Windows 11
-- .NET 8 运行时（Release 为框架依赖单文件发布，需安装 [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0)）
-- x64
+| 项 | 说明 |
+|---|---|
+| 目标平台 | Windows（x64）触屏设备（触控优先，笔/鼠标亦可） |
+| .NET SDK | 8.0（`<TargetFramework>net8.0-windows`） |
+| 触屏手写压感 | 需支持 `PointerPointProperties.Pressure` 输入的设备 |
 
 ## 构建
 
 ```bash
-# 调试
+dotnet restore
 dotnet build -c Debug
-
-# 发布（单文件 exe，输出到 publish/）
-dotnet publish -c Release -o publish
-
-# 本地打安装包（需安装 Inno Setup，iscc 在 PATH 中）
-iscc installer\EndfieldCharge.iss
+dotnet publish -c Release -r win-x64 --self-contained false
 ```
 
-> 注意：`PublishSingleFile` 只把托管 dll 打进 exe，SkiaSharp 的 native dll
-> （libSkiaSharp / libHarfBuzzSharp / av_libglesv2）仍需与 exe 同目录 ——
-> 便携分发请打包整个 `publish/` 目录，不要只拷 exe。
+产物目录：`bin/Release/net8.0-windows/win-x64/publish/`。
 
-### CI / 发布（GitHub Actions）
+> 本仓库以 PptConsole 为根目录；设计语言来源的 EndfieldCharge 原工程完整保留在 `EndfieldCharge/` 子文件夹作参考。
 
-推送到 `main` 分支会自动构建安装包与便携版 zip（Actions 页面可下载 artifact）。
-推送 `v*` 标签（如 `v1.0.0`）会额外创建 GitHub Release，并把标签版本号写入
-程序集版本与安装包文件名：
+> 提示：Avalonia 通过 Roslyn 源生成器编译 `.axaml`。若改动界面后出现"找不到 InitializeComponent"等异常，先 `dotnet clean` 再重新构建。
+
+## 运行
 
 ```bash
-git tag v1.0.0
-git push origin v1.0.0
+# 常驻模式：F5 进入 PowerPoint 放映 → 自动吊起控制台；Esc 退出 → 自动收回
+dotnet run -c Debug
+
+# 演示模式：无 PowerPoint 时在主屏预览控制台（便于无放映机调试 UI/动画）
+dotnet run -c Debug -- --demo
 ```
 
-## 调试参数
+托盘图标（左下角）左键可手动吊起/收回控制台，右键菜单退出。
 
-启动时追加参数，无需真的插拔电源：
+## 操作映射
 
-| 参数 | 作用 |
-|------|------|
-| `--demo` | 用示例数据播放一次**完整**动画（插电） |
-| `--preview` | 用本机真实电池数据播放一次完整动画 |
-| `--preview-unplug` | 用示例数据播放一次**简化**动画（拔电） |
-| `--debug-ring` | 静态呈现状态 C（电量态）1.5s |
-| `--power-log` | 输出电源事件日志到 `%TEMP%\power-log.txt` |
+| 胶囊 | 按钮 | 行为 |
+|---|---|---|
+| 左短 | 上一页 | SendInput 方向键 ←；COM 接管时页码由轮询校准，否则墨迹层页码 −1 |
+| 左短 | ☰ 页面列表 | 弹出缩略图网格（COM 导出 / 兜底页码），点击跳页（`GotoSlide`） |
+| 中长 | 笔 | 墨迹层接管触控；向上弹出"颜色/粗细/撤销/清空"面板 |
+| 中长 | 选择 | 墨迹层点击穿透，触控直达放映 |
+| 中长 | 橡皮 | 墨迹层接管触控；弹出"大小/撤销/清空"面板；笔画级擦除 |
+| 右短 | 下一页 | SendInput 方向键 →；COM 接管时页码由轮询校准，否则墨迹层页码 +1 |
+| 右短 | ☰ 页面列表 | 弹出缩略图网格（COM 导出 / 兜底页码），点击跳页（`GotoSlide`） |
 
-> 注意：这几个参数互斥，按 `--demo` → `--preview-unplug` → `--preview` 的优先级生效。
+点击任意工具按钮即播 500ms 触控波纹；胶囊吊起按 左→中→右 错峰入场；面板收起支撑（BackOut）。
 
-## 项目结构
+## 架构
 
 ```
-EndfieldCharge/
-├─ Animations/
-│  └─ HudAnimations.cs      # 时间线与动画轨道（KeySpline 逐段缓动）
-├─ Services/
-│  ├─ AutoStart.cs          # 开机自启（HKCU Run 键读写）
-│  ├─ BatteryService.cs     # 电池快照（剩余/满充 mWh、百分比、AC 状态）
-│  ├─ Logger.cs             # 文件日志（%TEMP%\EndfieldCharge\）
-│  ├─ PowerNative.cs        # P/Invoke：powrprof、message-only 窗口
-│  ├─ PowerWatcher.cs       # 电源变化监听 + 去抖确认
-│  └─ UpdateChecker.cs      # GitHub Releases 更新检查
-├─ Settings/
-│  ├─ AppSettings.cs        # 设置模型（缩放/动画微调/位置/显示器/语言/提醒）
-│  ├─ SettingsManager.cs    # 设置加载与持久化
-│  ├─ SettingsWindow.axaml  # 设置窗口（通用 / 动画 / 通知 / 关于）
-│  └─ SettingsWindow.axaml.cs
-├─ Views/
-│  ├─ HudWindow.axaml(.cs)  # HUD 视觉树（胶囊 / 电标 / 标题 / 数字 / 徽章 / 波纹）
-│  └─ TrayMenuWindow.axaml(.cs)    # 左键自定义托盘菜单
-├─ Styles/                  # 颜色主题与图标几何（StreamGeometry）
-├─ Assets/                  # tray_bolt.png（运行时图标）+ tray_bolt.ico（exe/安装器图标）
-├─ installer/
-│  ├─ EndfieldCharge.iss    # Inno Setup 安装脚本
-│  └─ Languages/            # 中文本地化（随仓库分发）
-└─ .github/workflows/       # CI：自动构建 + 打标签发 Release
+App.axaml / App.axaml.cs         组装：放映检测→吊起、事件总线、托盘、演示模式
+└─ ConsoleController.cs          三窗口协调器（摆放/错峰入场/出场/置顶）
+   ├─ LeftCapsuleWindow          左短胶囊〔列表‖上一页〕
+   ├─ CenterCapsuleWindow        中胶囊〔笔‖选择‖橡皮〕+ 向上扩展工具面板（高度自适应）
+   └─ RightCapsuleWindow         右短胶囊〔下一页‖列表〕
+CapsuleBehavior.cs               胶囊窗公共行为（静态：窗口壳/NOACTIVATE/Place/进出场）
+InkOverlayWindow                 全屏自绘墨迹层（穿透切换/压感/橡皮/撤销/按页记忆）
+ConsoleAnimations.cs             动画库（原 HudAnimations 曲线库的可逆交互化）
+SlideshowWatcher.cs              Win32 轮询 PowerPoint 放映窗口（screenClass/WPS 候选）+ 显示器定位
+PptComBridge.cs                  COM 晚期绑定：页码/页数轮询、GotoSlide 跳页、缩略图导出（任一翻页方式都校准墨迹页码）
+PageListWindow                   页面列表：缩略图网格 + 当前页高亮 + 点击跳页（COM 或兜底页码）
+InputNative / Win32Interop       SendInput 方向键；窗口样式/显示器/键盘 P/Invoke
+Styles/ ConsoleTheme+Geometries  设计令牌与图标几何
 ```
 
-## 动画实现要点
+## 真机验证清单（首次在触屏 Windows 上跑）
 
-- Avalonia 11 的 `KeyFrame` 使用 **`KeySpline`（贝塞尔控制点）** 做逐段缓动，多关键帧下 `Animation.Easing` 不生效 —— 每段必须显式指定 `KeySpline`，否则该段为线性。
-- `Border.HeightProperty`（即 `Layoutable.HeightProperty`）可直接动画，因此胶囊高度的 `60 → 90 → 60` 用独立轨道驱动。
-- 收尾「整体缩小关没」由外层 `ScaleHost` 的 `RenderTransform` 统一缩放，胶囊本身宽度不动。
+1. 控制台吊起后，触控点击胶囊 → 放映窗口是否保持前台（NOACTIVATE 生效，键击不被吞）。
+2. 笔模式画一笔 → 切"选择" → 翻页 → 翻回来，墨迹是否按页恢复。
+3. 橡皮指示圈与笔画级擦除是否跟随触点。
+4. 胶囊之间空白处触控是否直达放映层（三窗拆分收益）。
 
-## 许可证
+## 已知边界
 
-MIT
+- **COM 接管前提**：页码感知/页面列表在 PowerPoint 无放映或连接失败时自动降级为内部计数＋兜底页码，不影响基本翻页。
+- **WPS 兼容**：放映窗口类名候选含 WPS（`wppslideshowwnd`/`KWMainFrame`，未逐项验证）；WPS COM 是否暴露 `PowerPoint.Application` 与 `GotoSlide`/`Slide.Export` 未在真机验证，降级即可用。
+- 若放映程序以管理员运行，`SendInput` 会被 UIPI 拦截，需同权限运行（COM 之下跳页走 `GotoSlide` 可绕开该限制）。

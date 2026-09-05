@@ -2,11 +2,11 @@ using System;
 using System.Threading;
 using Avalonia;
 
-namespace PptConsole;
+namespace EndfieldCharge;
 
 class Program
 {
-    private const string SingleInstanceMutexName = @"Local\PptConsole_SingleInstance_9E4A";
+    private const string SingleInstanceMutexName = @"Local\EndfieldCharge_SingleInstance_7C1D";
 
     [STAThread]
     public static void Main(string[] args)
